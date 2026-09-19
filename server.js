@@ -9,7 +9,7 @@ app.use(express.json());
 
 // CORS para que tu index.html pueda llamar al servidor
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*'); // En producción cambia '*' por tu dominio
+  res.header('Access-Control-Allow-Origin', 'https://mitienda-web.netlify.app');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
   res.header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
