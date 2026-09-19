@@ -61,6 +61,12 @@ app.post('/crear-pago-wompi', async (req, res) => {
       reference: orderId,
       signature: signature,
       acceptance_token: acceptanceToken,
+        customer_data: {
+    full_name: req.body.customerName || 'Cliente Kalley',
+    phone_number: req.body.customerPhone || '3000000000',
+    legal_id: req.body.customerLegalId || '1234567890',
+    legal_id_type: req.body.customerLegalIdType || 'CC'
+  },
       payment_method_type: paymentMethodType,
       payment_method: paymentMethodDetails,
       redirect_url: 'https://tu-dominio.com/pago-resultado'
