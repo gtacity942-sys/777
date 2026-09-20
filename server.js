@@ -1,4 +1,3 @@
-// server.js
 require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
@@ -7,7 +6,6 @@ const crypto = require('crypto');
 const app = express();
 app.use(express.json());
 
-// CORS para que tu index.html pueda llamar al servidor
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', 'https://kalley-colombia.netlify.app');
   res.header('Access-Control-Allow-Headers', 'Content-Type');
@@ -23,21 +21,17 @@ const {
   WOMPI_INTEGRITY_KEY
 } = process.env;
 
-// Sandbox → cambia a https://production.wompi.co/v1 en producción
 const WOMPI_API = 'https://production.wompi.co/v1';
 
-// ─── Ruta de prueba ───
 app.get('/', (req, res) => {
   res.json({ status: 'ok', message: 'Servidor Kalley + Wompi funcionando' });
 });
 
-// ─── Obtener Acceptance Token ───
 async function getAcceptanceToken() {
   const res = await axios.get(`${WOMPI_API}/merchants/${WOMPI_PUBLIC_KEY}`);
   return res.data.data.presigned_acceptance.acceptance_token;
 }
 
-// ─── Crear transacción ───
 app.post('/crear-pago-wompi', async (req, res) => {
   try {
     const { orderId, amountInCents, customerEmail, paymentMethodType, paymentMethodDetails } = req.body;
@@ -46,13 +40,13 @@ app.post('/crear-pago-wompi', async (req, res) => {
       return res.status(400).json({ success: false, message: 'Faltan campos obligatorios.' });
     }
 
-    // Firma de integridad: reference + amount_in_cents + currency + integrity_key
     const signature = crypto
       .createHash('sha256')
       .update(`${orderId}${amountInCents}COP${WOMPI_INTEGRITY_KEY}`)
       .digest('hex');
 
     const acceptanceToken = await getAcceptanceToken();
+
     const payload = {
       amount_in_cents: amountInCents,
       currency: 'COP',
@@ -67,13 +61,14 @@ app.post('/crear-pago-wompi', async (req, res) => {
         legal_id_type: req.body.customerLegalIdType || 'CC'
       },
       payment_method_type: paymentMethodType,
-      redirect_url: 'https://tu-dominio.com/pago-resultado'
+      redirect_url: 'https://kalley-colombia.netlify.app'
     };
 
     if (paymentMethodDetails && paymentMethodType !== 'CARD') {
       payload.payment_method = paymentMethodDetails;
     }
 
+    const response = await axios.post(`${WOMPI_API}/transactions`, payload, {
       headers: {
         Authorization: `Bearer ${WOMPI_PRIVATE_KEY}`,
         'Content-Type': 'application/json'
@@ -97,13 +92,11 @@ app.post('/crear-pago-wompi', async (req, res) => {
   }
 });
 
-// ─── Webhook de Wompi ───
 app.post('/webhook-wompi', (req, res) => {
   const event = req.body;
   const receivedChecksum = req.headers['x-event-checksum'];
 
   if (!receivedChecksum) {
-    console.warn('Webhook sin checksum');
     return res.status(400).send('Falta checksum');
   }
 
@@ -115,7 +108,6 @@ app.post('/webhook-wompi', (req, res) => {
     .digest('hex');
 
   if (computedChecksum !== receivedChecksum) {
-    console.warn('Checksum inválido');
     return res.status(400).send('Firma inválida');
   }
 
@@ -124,8 +116,6 @@ app.post('/webhook-wompi', (req, res) => {
   if (event.event === 'transaction.updated') {
     const tx = event.data.transaction;
     console.log(`Transacción ${tx.id} → ${tx.status}`);
-    // Aquí actualizas tu base de datos según tx.status:
-    // APPROVED, DECLINED, VOIDED, ERROR
   }
 
   res.status(200).send('OK');
