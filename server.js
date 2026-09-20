@@ -45,6 +45,20 @@ app.post('/crear-pago-wompi', async (req, res) => {
       .update(`${orderId}${amountInCents}COP${WOMPI_INTEGRITY_KEY}`)
       .digest('hex');
 
+    const checkoutUrl = `https://checkout.wompi.co/p/?public-key=${WOMPI_PUBLIC_KEY}&currency=COP&amount-in-cents=${amountInCents}&reference=${orderId}&signature:integrity=${signature}`;
+
+    // Para TARJETA: solo devolvemos la URL del checkout.
+    // Wompi pide los datos de tarjeta en su propia página.
+    if (paymentMethodType === 'CARD') {
+      return res.json({
+        success: true,
+        transactionId: 'CARD-' + orderId,
+        status: 'PENDING',
+        checkoutUrl: checkoutUrl
+      });
+    }
+
+    // Para NEQUI y PSE: creamos la transacción con la API.
     const acceptanceToken = await getAcceptanceToken();
 
     const payload = {
@@ -61,12 +75,9 @@ app.post('/crear-pago-wompi', async (req, res) => {
         legal_id_type: req.body.customerLegalIdType || 'CC'
       },
       payment_method_type: paymentMethodType,
+      payment_method: paymentMethodDetails,
       redirect_url: 'https://kalley-colombia.netlify.app'
     };
-
-    if (paymentMethodDetails && paymentMethodType !== 'CARD') {
-      payload.payment_method = paymentMethodDetails;
-    }
 
     const response = await axios.post(`${WOMPI_API}/transactions`, payload, {
       headers: {
@@ -79,7 +90,7 @@ app.post('/crear-pago-wompi', async (req, res) => {
       success: true,
       transactionId: response.data.data.id,
       status: response.data.data.status,
-      checkoutUrl: `https://checkout.wompi.co/p/?public-key=${WOMPI_PUBLIC_KEY}&currency=COP&amount-in-cents=${amountInCents}&reference=${orderId}&signature:integrity=${signature}`
+      checkoutUrl: checkoutUrl
     });
 
   } catch (error) {
